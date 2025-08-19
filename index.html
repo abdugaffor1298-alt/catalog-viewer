@@ -1,74 +1,101 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
+  <title>Catalog Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF Catalog Viewer</title>
-
-  <!-- Swiper CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
-
   <style>
-    body, html {
-      margin:0;
-      padding:0;
-      height:100%;
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #111;
+      color: white;
+      height: 100vh;
+      overflow: hidden;
+      font-family: sans-serif;
     }
-    .swiper {
-      width: 100%;
-      height: 100%;
+    #pdf-canvas {
+      max-width: 100%;
+      max-height: 90vh;
+      object-fit: contain;
     }
-    canvas {
-      width: 100% !important;
-      height: auto !important;
-      display: block;
-      margin: auto;
+    .controls {
+      display: flex;
+      justify-content: center;
+      margin: 10px;
+      gap: 20px;
+    }
+    button {
+      background: #444;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #222;
+      cursor: not-allowed;
     }
   </style>
 </head>
 <body>
-
-  <!-- Swiper -->
-  <div class="swiper">
-    <div class="swiper-wrapper" id="pdf-container"></div>
-    <!-- Pagination (pastdagi nuqtalar) -->
-    <div class="swiper-pagination"></div>
+  <canvas id="pdf-canvas"></canvas>
+  <div class="controls">
+    <button id="prev">⬅️ Oldingi</button>
+    <span id="page-info"></span>
+    <button id="next">Keyingi ➡️</button>
   </div>
 
-  <!-- Swiper JS -->
-  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-  <!-- PDF.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
   <script>
     const url = "catalog.pdf"; // sizning PDF faylingiz
-    const container = document.getElementById("pdf-container");
+    let pdfDoc = null,
+        pageNum = 1,
+        canvas = document.getElementById('pdf-canvas'),
+        ctx = canvas.getContext('2d');
 
-    pdfjsLib.getDocument(url).promise.then(pdf => {
-      for (let i = 1; i <= pdf.numPages; i++) {
-        pdf.getPage(i).then(page => {
-          const viewport = page.getViewport({ scale: 2 });
-          const canvas = document.createElement("canvas");
-          const context = canvas.getContext("2d");
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
+    function renderPage(num) {
+      pdfDoc.getPage(num).then(page => {
+        let viewport = page.getViewport({ scale: 1 });
+        let scale = Math.min(window.innerWidth / viewport.width, window.innerHeight / viewport.height);
+        viewport = page.getViewport({ scale: scale });
 
-          page.render({ canvasContext: context, viewport: viewport });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
 
-          const slide = document.createElement("div");
-          slide.className = "swiper-slide";
-          slide.appendChild(canvas);
-          container.appendChild(slide);
-        });
-      }
-
-      // Swiper init (mobil-friendly)
-      new Swiper('.swiper', {
-        pagination: { el: '.swiper-pagination' },
-        spaceBetween: 10,
+        let renderContext = {
+          canvasContext: ctx,
+          viewport: viewport
+        };
+        page.render(renderContext);
+        document.getElementById('page-info').textContent = `${num} / ${pdfDoc.numPages}`;
+        document.getElementById('prev').disabled = (num <= 1);
+        document.getElementById('next').disabled = (num >= pdfDoc.numPages);
       });
+    }
+
+    pdfjsLib.getDocument(url).promise.then(pdfDoc_ => {
+      pdfDoc = pdfDoc_;
+      renderPage(pageNum);
     });
+
+    document.getElementById('prev').addEventListener('click', () => {
+      if (pageNum <= 1) return;
+      pageNum--;
+      renderPage(pageNum);
+    });
+
+    document.getElementById('next').addEventListener('click', () => {
+      if (pageNum >= pdfDoc.numPages) return;
+      pageNum++;
+      renderPage(pageNum);
+    });
+
+    window.addEventListener('resize', () => renderPage(pageNum));
   </script>
 </body>
 </html>
-
